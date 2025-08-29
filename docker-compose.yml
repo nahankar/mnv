@@ -1,0 +1,269 @@
+services:
+  # Database services
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ai_pipeline
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d ai_pipeline"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # AI Microservices
+  story-service:
+    build:
+      context: .
+      dockerfile: services/story/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/ai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - SERVICE_NAME=story-service
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - ENVIRONMENT=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  tts-service:
+    build:
+      context: .
+      dockerfile: services/tts-service/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/ai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - SERVICE_NAME=tts-service
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - ENVIRONMENT=development
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - AZURE_SPEECH_KEY=${AZURE_SPEECH_KEY:-}
+      - AZURE_SPEECH_REGION=${AZURE_SPEECH_REGION:-eastus}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  image-service:
+    build:
+      context: .
+      dockerfile: services/image-service/Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/ai_pipeline
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SERVICE_NAME=image-service
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-test-key-for-development}
+      - STABILITY_API_KEY=${STABILITY_API_KEY:-test-key-for-development}
+      - REPLICATE_API_TOKEN=${REPLICATE_API_TOKEN:-test-token-for-development}
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - IMAGE_PROVIDER=${IMAGE_PROVIDER:-mock}
+      - MOCK_FAIL_RATE=${MOCK_FAIL_RATE:-0.1}
+      - LOCAL_STORAGE_PATH=/app/uploads/images
+      - LOCAL_STORAGE_URL=http://localhost:8003/images
+      - STORAGE_TYPE=${STORAGE_TYPE:-local}
+    volumes:
+      - image_uploads:/app/uploads/images
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  music-service:
+    build:
+      context: .
+      dockerfile: services/music-service/Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/ai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - SERVICE_NAME=music-service
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - ENVIRONMENT=development
+      - MUSIC_UPLOAD_DIR=/app/uploads/music
+      - MUSIC_PROVIDER=${MUSIC_PROVIDER:-mock}
+      - MUBERT_API_KEY=${MUBERT_API_KEY:-}
+      - SUNO_API_KEY=${SUNO_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    volumes:
+      - music_uploads:/app/uploads/music
+
+  video-service:
+    build:
+      context: .
+      dockerfile: services/video-service/Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/ai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - SERVICE_NAME=video-service
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - ENVIRONMENT=development
+    volumes:
+      - video_outputs:/app/videos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  moderation-service:
+    build:
+      context: .
+      dockerfile: services/moderation-service/Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/ai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - SERVICE_NAME=moderation-service
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - ENVIRONMENT=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - MODERATION_PROVIDER=${MODERATION_PROVIDER:-openai}
+      - MODERATION_THRESHOLD=${MODERATION_THRESHOLD:-0.7}
+      - MODERATION_STORAGE_PATH=/app/storage/moderation
+    volumes:
+      - moderation_storage:/app/storage/moderation
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8006/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  distribution-service:
+    build:
+      context: .
+      dockerfile: services/distribution-service/Dockerfile
+    ports:
+      - "8007:8007"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/ai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - SERVICE_NAME=distribution-service
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - ENVIRONMENT=development
+      - MAX_RETRY_ATTEMPTS=3
+      - RETRY_DELAY_BASE=2
+      - UPLOAD_TIMEOUT=300
+      # YouTube API credentials
+      - YOUTUBE_CLIENT_ID=${YOUTUBE_CLIENT_ID:-}
+      - YOUTUBE_CLIENT_SECRET=${YOUTUBE_CLIENT_SECRET:-}
+      - YOUTUBE_REFRESH_TOKEN=${YOUTUBE_REFRESH_TOKEN:-}
+      # Instagram API credentials
+      - INSTAGRAM_ACCESS_TOKEN=${INSTAGRAM_ACCESS_TOKEN:-}
+      - INSTAGRAM_USER_ID=${INSTAGRAM_USER_ID:-}
+      # TikTok API credentials
+      - TIKTOK_ACCESS_TOKEN=${TIKTOK_ACCESS_TOKEN:-}
+      - TIKTOK_CLIENT_KEY=${TIKTOK_CLIENT_KEY:-}
+      # Facebook API credentials
+      - FACEBOOK_ACCESS_TOKEN=${FACEBOOK_ACCESS_TOKEN:-}
+      - FACEBOOK_PAGE_ID=${FACEBOOK_PAGE_ID:-}
+    volumes:
+      - video_outputs:/app/videos:ro  # Read-only access to video files
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8007/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  image_uploads:
+  music_uploads:
+  moderation_storage:
+  video_outputs:  # Shared volume for video files
+
+networks:
+  default:
+    name: ai-pipeline-network
