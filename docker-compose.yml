@@ -256,6 +256,132 @@ services:
       retries: 3
     restart: unless-stopped
 
+  analytics-service:
+    build:
+      context: .
+      dockerfile: services/analytics-service/Dockerfile
+    ports:
+      - "8008:8008"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/ai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - SERVICE_NAME=analytics-service
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - ENVIRONMENT=development
+      - YOUTUBE_ANALYTICS_CREDENTIALS=${YOUTUBE_ANALYTICS_CREDENTIALS:-}
+      - INSTAGRAM_ACCESS_TOKEN=${INSTAGRAM_ACCESS_TOKEN:-}
+      - TIKTOK_API_KEY=${TIKTOK_API_KEY:-}
+      - FACEBOOK_ACCESS_TOKEN=${FACEBOOK_ACCESS_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8008/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  analytics-worker:
+    build:
+      context: .
+      dockerfile: services/analytics-service/Dockerfile
+    command: celery -A celery_app.celery_app worker --loglevel=INFO
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/ai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - YOUTUBE_ANALYTICS_CREDENTIALS=${YOUTUBE_ANALYTICS_CREDENTIALS:-}
+      - INSTAGRAM_ACCESS_TOKEN=${INSTAGRAM_ACCESS_TOKEN:-}
+      - TIKTOK_API_KEY=${TIKTOK_API_KEY:-}
+      - FACEBOOK_ACCESS_TOKEN=${FACEBOOK_ACCESS_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  analytics-beat:
+    build:
+      context: .
+      dockerfile: services/analytics-service/Dockerfile
+    command: celery -A celery_app.celery_app beat --loglevel=INFO
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/ai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - YOUTUBE_ANALYTICS_CREDENTIALS=${YOUTUBE_ANALYTICS_CREDENTIALS:-}
+      - INSTAGRAM_ACCESS_TOKEN=${INSTAGRAM_ACCESS_TOKEN:-}
+      - TIKTOK_API_KEY=${TIKTOK_API_KEY:-}
+      - FACEBOOK_ACCESS_TOKEN=${FACEBOOK_ACCESS_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  orchestration-service:
+    build:
+      context: .
+      dockerfile: services/orchestration-service/Dockerfile
+    ports:
+      - "8010:8010"
+    environment:
+      - STORY_BASE=http://story-service:8001
+      - TTS_BASE=http://tts-service:8002
+      - IMAGE_BASE=http://image-service:8003
+      - VIDEO_BASE=http://video-service:8005
+      - DISTRIBUTION_BASE=http://distribution-service:8007
+      - ANALYTICS_BASE=http://analytics-service:8008
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      story-service:
+        condition: service_started
+      tts-service:
+        condition: service_started
+      image-service:
+        condition: service_started
+      video-service:
+        condition: service_started
+      distribution-service:
+        condition: service_started
+      analytics-service:
+        condition: service_started
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NEXT_PUBLIC_STORY_BASE=http://story-service:8001
+      - NEXT_PUBLIC_TTS_BASE=http://tts-service:8002
+      - NEXT_PUBLIC_IMAGE_BASE=http://image-service:8003
+      - NEXT_PUBLIC_MUSIC_BASE=http://music-service:8004
+      - NEXT_PUBLIC_VIDEO_BASE=http://video-service:8005
+      - NEXT_PUBLIC_MODERATION_BASE=http://moderation-service:8006
+      - NEXT_PUBLIC_DISTRIBUTION_BASE=http://distribution-service:8007
+      - NEXT_PUBLIC_ANALYTICS_BASE=http://analytics-service:8008
+      - NEXT_PUBLIC_ORCHESTRATION_BASE=http://orchestration-service:8010
+      - REDIS_URL=redis://redis:6379/0
+      - NEXT_PUBLIC_CSRF_TOKEN=devtoken
+    depends_on:
+      orchestration-service:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

@@ -265,3 +265,7 @@
   - Shorts/Reels safe areas; auto-cropping; hashtag pools by niche
   - Best-time scheduling heuristics per platform
   - _Requirements: 2.6, 2.8, 3.1, 3.2_
+
+## Nice to have
+
+- [ ] Add an AnalyticsCollector that pulls metrics from platforms using stored PlatformUpload IDs and populates AnalyticsData on a schedule.

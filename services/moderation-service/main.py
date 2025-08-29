@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Any
 from enum import Enum
 
 import httpx
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, UploadFile, File, Request
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, UploadFile, File, Request, Query, Form
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, validator
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -468,10 +468,10 @@ async def root():
 @app.post("/moderate/text")
 async def moderate_text_endpoint(
     request: Request,
-    text: str = Field(..., description="Text content to moderate"),
-    level: ModerationLevel = Field(ModerationLevel.MEDIUM, description="Moderation level"),
-    user_id: Optional[str] = Field(None, description="User ID"),
-    platform: Optional[str] = Field(None, description="Target platform")
+    text: str = Form(..., description="Text content to moderate"),
+    level: ModerationLevel = Form(ModerationLevel.MEDIUM, description="Moderation level"),
+    user_id: Optional[str] = Form(None, description="User ID"),
+    platform: Optional[str] = Form(None, description="Target platform")
 ):
     """Moderate text content"""
     service = get_moderation_service()
@@ -556,10 +556,10 @@ async def moderate_text_endpoint(
 async def moderate_file_endpoint(
     request: Request,
     file: UploadFile = File(...),
-    content_type: ContentType = Field(..., description="Content type"),
-    level: ModerationLevel = Field(ModerationLevel.MEDIUM, description="Moderation level"),
-    user_id: Optional[str] = Field(None, description="User ID"),
-    platform: Optional[str] = Field(None, description="Target platform")
+    content_type: ContentType = Form(..., description="Content type"),
+    level: ModerationLevel = Form(ModerationLevel.MEDIUM, description="Moderation level"),
+    user_id: Optional[str] = Form(None, description="User ID"),
+    platform: Optional[str] = Form(None, description="Target platform")
 ):
     """Moderate file content (image, audio, video)"""
     
@@ -680,9 +680,9 @@ async def moderate_file_endpoint(
 
 @app.get("/review/queue")
 async def get_review_queue(
-    status: Optional[ModerationStatus] = None,
-    limit: int = Field(50, ge=1, le=100),
-    offset: int = Field(0, ge=0)
+    status: Optional[ModerationStatus] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0)
 ):
     """Get items requiring manual review"""
     try:
@@ -796,8 +796,8 @@ async def review_moderation(
 
 @app.get("/compliance/check")
 async def check_compliance(
-    text: str = Field(..., description="Text to check for compliance"),
-    platform: Optional[str] = Field(None, description="Target platform")
+    text: str = Query(..., description="Text to check for compliance"),
+    platform: Optional[str] = Query(None, description="Target platform")
 ):
     """Check compliance with GDPR, COPPA, and platform policies"""
     try:

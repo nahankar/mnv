@@ -1,0 +1,38 @@
+{
+  "name": "admin-web",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev -p 4000",
+    "build": "next build",
+    "start": "next start -p 4000",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "next-auth": "5.0.0-beta.20",
+    "zod": "3.23.8",
+    "ioredis": "5.4.1",
+    "chart.js": "4.4.3",
+    "react-chartjs-2": "5.2.0",
+    "react-hot-toast": "2.4.1",
+    "swr": "2.2.5",
+    "clsx": "2.1.1",
+    "class-variance-authority": "0.7.0",
+    "tailwind-merge": "2.5.2",
+    "@radix-ui/react-slot": "1.0.2",
+    "sonner": "1.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.30",
+    "@types/react": "18.2.66",
+    "@types/react-dom": "18.2.22",
+    "typescript": "5.5.4",
+    "tailwindcss": "3.4.10",
+    "postcss": "8.4.47",
+    "autoprefixer": "10.4.20",
+    "tailwindcss-animate": "1.0.7"
+  }
+}

@@ -41,6 +41,9 @@ health:
 	@curl -s http://localhost:8004/health || echo "Music service not responding"
 	@curl -s http://localhost:8005/health || echo "Video service not responding"
 	@curl -s http://localhost:8006/health || echo "Moderation service not responding"
+	@curl -s http://localhost:8007/health || echo "Distribution service not responding"
+	@curl -s http://localhost:8008/health || echo "Analytics service not responding"
+	@curl -s http://localhost:8010/health || echo "Orchestration service not responding"
 
 # Development tools
 test:
@@ -98,6 +101,14 @@ test-migrations:
 test-story-service-live:
 	@echo "Testing live story service..."
 	python3 scripts/test-story-service.py
+
+test-analytics-service:
+	@echo "Running analytics service tests against running service..."
+	ANALYTICS_BASE_URL=http://localhost:8008 python3 -m pytest tests/test_analytics_service.py -v
+
+test-orchestration-service:
+	@echo "Running orchestration service tests against running service..."
+	python3 -m pytest tests/test_orchestration_service.py -v
 
 lint:
 	@echo "Running linting..."
